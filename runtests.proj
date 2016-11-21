@@ -1,0 +1,66 @@
+<Project ToolsVersion="4.0" DefaultTargets="RunTests;TranslateCoverageXml" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ 
+  <PropertyGroup>
+    <results_file Condition="'$(results_file)'==''">./MS-TestResults.trx</results_file>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <include_string Condition="'$(include_string)'==''">**\bin\debug\**\*.UnitTest*.dll</include_string>
+    <exclude_string></exclude_string>
+  </PropertyGroup>
+ 
+  <PropertyGroup>
+    <MsTestExePath Condition="'$(MsTestExePath)'==''">C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\IDE\MSTest.exe</MsTestExePath>
+    <OpenCoverPath Condition="'$(OpenCoverPath)'==''">BuildSystemHelpers\Opencover\OpenCover.Console.exe</OpenCoverPath>
+     <XSLTTransformFile Condition="'$(XSLTTransformFile)'==''">BuildSystemHelpers\opencover_to_ncover.xslt</XSLTTransformFile>
+  </PropertyGroup>
+ 
+  <ItemGroup>
+    <TestAssemblies Include="$(include_string)" Exclude="$(exclude_string)" />
+  </ItemGroup>
+ 
+  <ItemGroup>
+    <ResultsFile Include="$(results_file)" />
+  </ItemGroup>
+ 
+  <Target Name="RunTests">
+    <Message Text="Found test assemblies: @(TestAssemblies)" />
+ 
+    <MakeDir Directories="./TestResults" />
+    <CallTarget Targets="RunMsTest" />
+  </Target>
+ 
+  <Target Name="RunMsTest" >
+    <Message Text="Running to results file: %(ResultsFile.Identity)" />
+    <Message Text="Couldn't find opencover!" Condition="!Exists('$(OpenCoverPath)')"/>
+    <PropertyGroup>
+      <MsTestCommand>"$(OpenCoverPath)" -target:"$(MsTestExePath)" -targetargs:"@(TestAssemblies ->'/testcontainer:&quot;%(RecursiveDir)%(Filename)%(Extension)&quot; ', ' ') /resultsfile:TestResults\%(ResultsFile.Identity)" -filter:"+[AGL.*]* -[*Test*]*" -register:user -mergebyhash </MsTestCommand>
+    </PropertyGroup>
+ 
+    <Message Text="Running command $(MsTestCommand)" />
+ 
+    <Exec Condition=" '@(TestAssemblies)' != ''" Command="$(MsTestCommand)" ContinueOnError="true">
+      <Output TaskParameter="ExitCode" ItemName="ErrorCode"/>
+    </Exec>
+    <Message Text="Tests complete" />
+    <Message Text="The exit code is $(ErrorCode)"/>
+    <Error Text="Error while executing MSTest" Condition="'$(ErrorCode)' != ''" />
+    <OnError ExecuteTargets="MessageErrorHandler"/>      
+  </Target>
+ 
+  <Target Name="MessageErrorHandler">
+    <Message Text="An error has occurred while executing MSTest"/>
+  </Target>
+
+  <Target Name="TranslateCoverageXml">
+    <ItemGroup>
+      <CoverageFiles Include="results.xml" />
+    </ItemGroup>
+    <Message Text="Tranforming..." />
+    <Message Text="Found transforms: @(CoverageFiles)" />
+    <XslTransformation XmlInputPaths="%(CoverageFiles.Identity)" 
+      XslInputPath="$(XSLTTransformFile)" 
+      OutputPaths="%(CoverageFiles.FileName).ncover.xml" />
+  </Target>
+ 
+</Project>
